@@ -531,6 +531,14 @@ export default function App() {
             <span />
             100% local & private
           </span>
+          <Button variant="outline" className="header-file-action" aria-label="Open PDF" title="Open PDF" onClick={() => pdfInput.current?.click()}>
+            <Upload />
+            <span className="header-action-label">Open PDF</span>
+          </Button>
+          <Button className="header-file-action" aria-label="Download PDF" title="Download PDF" onClick={download} disabled={!bytes || busy || exporting}>
+            <ArrowDownToLine />
+            <span className="header-action-label">{exporting ? "Processing…" : "Download PDF"}</span>
+          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -553,12 +561,7 @@ export default function App() {
       </header>
       <div className="editor-layout">
         <nav className="icon-rail" aria-label="Editor panels">
-          <button title="Open PDF" aria-label="Open PDF" onClick={() => pdfInput.current?.click()}>
-            <Upload size={19} />
-          </button>
-          <button title="Download PDF" aria-label="Download PDF" onClick={download} disabled={!bytes || busy || exporting}>
-            <ArrowDownToLine size={19} />
-          </button>
+
           <button
             title="Pages"
             aria-label="Pages panel"
@@ -617,14 +620,7 @@ export default function App() {
                   <span className="demo-label">{fileName === "Partnership proposal.pdf" ? "Demo document" : "Local document"}</span>
                 </div>
                 <span className="session-status"><Check size={12} />{history.past.length ? "Changes in this session" : "Ready to edit"}</span>
-                <div className="document-actions">
-                  <Button variant="outline" onClick={() => pdfInput.current?.click()}>
-                    <Upload /><span>Open PDF</span>
-                  </Button>
-                  <Button onClick={download} disabled={!bytes || busy || exporting}>
-                    <ArrowDownToLine /><span>{exporting ? "Processing…" : "Download PDF"}</span>
-                  </Button>
-                </div>
+
               </div>
             </section>}
             {tab !== "pages" && <h1 className="sr-only">{fileName || "PDF Studio"}</h1>}
@@ -1129,7 +1125,7 @@ export default function App() {
             </span>
           </div>
           <div className="studio-version">
-            FOLIO STUDIO <span>v1.2.0</span>
+            FOLIO STUDIO <span>v1.2.1</span>
           </div>
         </aside>
       </div>

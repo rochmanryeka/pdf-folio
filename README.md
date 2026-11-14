@@ -1,7 +1,7 @@
 # Folio — PDF Studio
 
 Public app: https://pdf-folio.ryeka.my.id<br />
-Source: https://github.com/rochmanryeka/pdf-folio (private repository)
+Source: https://github.com/rochmanryeka/pdf-folio (public repository)
 
 ## Annotation tools
 

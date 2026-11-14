@@ -73,13 +73,15 @@ try {
     assert(value.scrollWidth <= width);
     assert(Math.abs(value.toolbarTop - value.headerBottom) <= 1);
     assert.equal(value.h1, "Partnership proposal.pdf");
-    assert(value.version.includes("1.2.0"));
+    assert(value.version.includes("1.2.1"));
     sizes.push(value);
     for (const label of ["Open PDF", "Download PDF"]) {
+      const buttons=await p.$$(`button[aria-label="${label}"]`);
+      assert.equal(buttons.length,1,`Exactly one ${label}`);
       const box = await (
-        await p.$(`.icon-rail button[aria-label="${label}"]`)
+        await p.$(`.header-actions button[aria-label="${label}"]`)
       ).boundingBox();
-      assert(box && box.x >= 0 && box.y >= 0 && box.y + box.height <= 900);
+      assert(box && box.x >= width/2 && box.x+box.width<=width && box.y >= 0 && box.y + box.height <= value.headerBottom, JSON.stringify({label,width,box,headerBottom:value.headerBottom}));
     }
     if (width === 390 || width === 1440)
       await p.screenshot({ path: path.join(out, `compact-${width}.png`) });
@@ -87,8 +89,8 @@ try {
   results.push(
     "Header removed and toolbar directly below app header at 6 viewport widths",
     "Duplicate right-hand tools removed",
-    "Open/download always visible from icon rail",
-    "Version 1.2.0 shown",
+    "Single Open/download buttons visible on the right side of the global header",
+    "Version 1.2.1 shown",
   );
   await p.setViewport({ width: 390, height: 844 });
   await p.goto(base, { waitUntil: "networkidle0" });

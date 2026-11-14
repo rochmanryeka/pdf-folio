@@ -12,7 +12,7 @@ vi.mock("../src/components/PdfCanvas", () => ({
 }));
 import App from "../src/App";
 
-test("keeps document details and file actions in the compact pages panel", async () => {
+test("keeps document details in the pages panel and file actions in the global header", async () => {
   render(<App />);
   await screen.findByRole("heading", {
     level: 1,
@@ -26,23 +26,18 @@ test("keeps document details and file actions in the compact pages panel", async
   expect(within(panel as HTMLElement).getByText("1 pages")).toBeTruthy();
   expect(within(panel as HTMLElement).getByText("Demo document")).toBeTruthy();
   expect(within(panel as HTMLElement).getByText("Ready to edit")).toBeTruthy();
-  expect(
-    (
-      within(panel as HTMLElement).getByRole("button", {
-        name: "Open PDF",
-      }) as HTMLButtonElement
-    ).disabled,
-  ).toBe(false);
-  expect(
-    (
-      within(panel as HTMLElement).getByRole("button", {
-        name: "Download PDF",
-      }) as HTMLButtonElement
-    ).disabled,
-  ).toBe(false);
+  expect(within(panel as HTMLElement).queryByRole("button", { name: "Open PDF" })).toBeNull();
+  expect(within(panel as HTMLElement).queryByRole("button", { name: "Download PDF" })).toBeNull();
+  expect(document.querySelector(".document-actions")).toBeNull();
+  const header = document.querySelector(".app-header .header-actions");
+  expect(header).not.toBeNull();
+  expect(within(header as HTMLElement).getAllByRole("button", { name: "Open PDF" })).toHaveLength(1);
+  expect(within(header as HTMLElement).getAllByRole("button", { name: "Download PDF" })).toHaveLength(1);
+  expect((within(header as HTMLElement).getByRole("button", { name: "Open PDF" }) as HTMLButtonElement).disabled).toBe(false);
+  expect((within(header as HTMLElement).getByRole("button", { name: "Download PDF" }) as HTMLButtonElement).disabled).toBe(false);
 });
 
-test("keeps open and download actions available from the icon rail when the sidebar is closed", async () => {
+test("keeps the single header open and download actions available when the sidebar is closed", async () => {
   const user = userEvent.setup();
   render(<App />);
   await screen.findByText("Partnership proposal.pdf");
@@ -54,18 +49,15 @@ test("keeps open and download actions available from the icon rail when the side
       .getByRole("heading", { level: 1, name: "Partnership proposal.pdf" })
       .classList.contains("sr-only"),
   ).toBe(true);
-  expect(
-    (screen.getByRole("button", { name: "Open PDF" }) as HTMLButtonElement)
-      .disabled,
-  ).toBe(false);
-  expect(
-    (screen.getByRole("button", { name: "Download PDF" }) as HTMLButtonElement)
-      .disabled,
-  ).toBe(false);
+  const header = document.querySelector(".app-header .header-actions");
+  expect(within(header as HTMLElement).getAllByRole("button", { name: "Open PDF" })).toHaveLength(1);
+  expect(within(header as HTMLElement).getAllByRole("button", { name: "Download PDF" })).toHaveLength(1);
+  expect(document.querySelector(".icon-rail [aria-label='Open PDF']")).toBeNull();
+  expect(document.querySelector(".icon-rail [aria-label='Download PDF']")).toBeNull();
 });
 
 test("updates the studio version and mobile pages panel starts below the global header", async () => {
   render(<App />);
   await screen.findByText("Partnership proposal.pdf");
-  expect(screen.getByText("v1.2.0")).toBeTruthy();
+  expect(screen.getByText("v1.2.1")).toBeTruthy();
 });
