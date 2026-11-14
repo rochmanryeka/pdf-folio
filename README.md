@@ -7,6 +7,12 @@ Source: https://github.com/rochmanryeka/pdf-folio (public repository)
 
 The English-language workspace supports added text, lines, arrows, rectangles, circles/ellipses, and highlights, alongside image and signature overlays. Select an object to change its appearance, duplicate it, move it, resize it, or delete it. Added text is exported as searchable PDF text; shapes are vectors rather than screenshots. Standard PDF fonts support Western/Latin characters; unsupported characters produce an explicit export error. Existing PDF text is not rewritten.
 
+## Interaction controls
+
+- Select Line, Arrow, Rectangle, or Circle, then click and drag on the PDF page to set its position and size. Release to create it; press Escape to cancel. A simple click does not insert a shape.
+- Text annotations use PDF-point padding, measured word wrapping, and automatic height so the editor and exported PDF remain consistent.
+- Right-click a canvas object for its edit/properties/duplicate/delete actions, or right-click empty editor space for drawing tools and document actions. Keyboard context-menu access is available with Shift+F10. Native text-input menus remain available while typing.
+
 ## Deployment
 
 Netlify site: `pdffolio-ryeka` (`e40ac12e-0415-4100-ae3d-2d4446af0fa9`). Build command: `npm run build`; publish directory: `dist`; Node 24. DNS CNAME `pdf-folio.ryeka.my.id` points to `pdffolio-ryeka.netlify.app`.

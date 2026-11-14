@@ -22,13 +22,20 @@ export function OverlayVisual({
     stroke = o.strokeWidth || 2,
     opacity = o.opacity ?? 1;
   const fill = o.fill && o.fill !== "none" ? o.fill : "none";
-  if(o.kind === "text")return <TextOverlayPreview overlay={o} width={width} height={height}/>;
+  if (o.kind === "text")
+    return <TextOverlayPreview overlay={o} width={width} height={height} />;
   const line = o.kind === "line" || o.kind === "arrow";
-  const angle = Math.atan2(-height, width),
+  const start = o.start || { x: 0, y: 1 };
+  const end = o.end || { x: 1, y: 0 };
+  const x1 = start.x * width,
+    y1 = start.y * height;
+  const x2 = end.x * width,
+    y2 = end.y * height;
+  const angle = Math.atan2(y2 - y1, x2 - x1),
     head = Math.max(8, stroke * 4);
   const points = [-1, 1].map((side) => ({
-    x: width + Math.cos(angle + Math.PI + (side * Math.PI) / 6) * head,
-    y: Math.sin(angle + Math.PI + (side * Math.PI) / 6) * head,
+    x: x2 + Math.cos(angle + Math.PI + (side * Math.PI) / 6) * head,
+    y: y2 + Math.sin(angle + Math.PI + (side * Math.PI) / 6) * head,
   }));
   return (
     <svg
@@ -40,10 +47,10 @@ export function OverlayVisual({
     >
       {line ? (
         <g fill="none" stroke={color} strokeWidth={stroke}>
-          <line x1="0" y1={height} x2={width} y2="0" />
+          <line x1={x1} y1={y1} x2={x2} y2={y2} />
           {o.kind === "arrow" &&
             points.map((p, i) => (
-              <line key={i} x1={width} y1="0" x2={p.x} y2={p.y} />
+              <line key={i} x1={x2} y1={y2} x2={p.x} y2={p.y} />
             ))}
         </g>
       ) : o.kind === "circle" ? (

@@ -73,7 +73,7 @@ try {
     assert(value.scrollWidth <= width);
     assert(Math.abs(value.toolbarTop - value.headerBottom) <= 1);
     assert.equal(value.h1, "Partnership proposal.pdf");
-    assert(value.version.includes("1.2.1"));
+    assert(value.version.includes("1.3.0"));
     sizes.push(value);
     for (const label of ["Open PDF", "Download PDF"]) {
       const buttons=await p.$$(`button[aria-label="${label}"]`);
@@ -90,7 +90,7 @@ try {
     "Header removed and toolbar directly below app header at 6 viewport widths",
     "Duplicate right-hand tools removed",
     "Single Open/download buttons visible on the right side of the global header",
-    "Version 1.2.1 shown",
+    "Version 1.3.0 shown",
   );
   await p.setViewport({ width: 390, height: 844 });
   await p.goto(base, { waitUntil: "networkidle0" });

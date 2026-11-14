@@ -11,6 +11,7 @@ export type EditorToolbarProps = {
   onAddAnnotation?: (
     kind: "text" | "line" | "arrow" | "rectangle" | "circle" | "highlight",
   ) => void;
+  activeTool?: "line" | "arrow" | "rectangle" | "circle" | "highlight" | null;
   onZoom: (zoom: number) => void;
   onFit: () => void;
 };
@@ -95,6 +96,7 @@ export function EditorToolbar(p: EditorToolbarProps) {
             disabled={!p.ready}
             aria-label={kind === "text" ? "Add text" : `Add ${kind}`}
             title={kind === "text" ? "Add text" : `Add ${kind}`}
+            aria-pressed={kind !== "text" ? p.activeTool === kind : undefined}
             onClick={() => p.onAddAnnotation?.(kind)}
           >
             {kind === "text" ? (

@@ -257,13 +257,122 @@ function pdfFont(overlay: Overlay, fonts: Record<string, PDFFont>) {
 
 function validateStandardFontText(text: string, font: PDFFont) {
   try {
-    for (const character of text.replace(/\r?\n/g, ""))
+    for (const character of text.replace(/[\r\n]/g, ""))
       font.encodeText(character);
   } catch {
     throw new Error(
       "This text contains characters unsupported by standard PDF fonts. Use ASCII characters or embed a font that supports this language.",
     );
   }
+}
+
+export type TextOverlayMeasurement = {
+  lines: string[];
+  padding: number;
+  requiredHeight: number;
+  lineHeight: number;
+  fontSize: number;
+  ascender: number;
+};
+
+function measureTextWithFont(
+  overlay: Overlay,
+  widthPoints: number,
+  font: PDFFont,
+): TextOverlayMeasurement {
+  const size = overlay.fontSize ?? 18;
+  const padding = overlay.textPadding ?? 6;
+  if (!Number.isFinite(size) || size <= 0)
+    throw new Error("Text size must be a positive number.");
+  if (!Number.isFinite(padding) || padding < 0)
+    throw new Error("Text padding must be a non-negative number.");
+  if (!Number.isFinite(widthPoints) || widthPoints <= 2 * padding)
+    throw new Error("Text box must be wider than its horizontal padding.");
+  const text = overlay.text ?? "";
+  validateStandardFontText(text, font);
+  const availableWidth = widthPoints - 2 * padding;
+  const lines: string[] = [];
+  const widthOf = (value: string) => font.widthOfTextAtSize(value, size);
+  const appendWord = (word: string, current: string): string => {
+    if (current) {
+      const combined = `${current} ${word}`;
+      if (widthOf(combined) <= availableWidth) return combined;
+      lines.push(current);
+    }
+    let line = "";
+    for (const glyph of word) {
+      if (widthOf(glyph) > availableWidth)
+        throw new Error(
+          "Text box is too narrow to fit a character. Increase its width or reduce the font size.",
+        );
+      if (line && widthOf(line + glyph) > availableWidth) {
+        lines.push(line);
+        line = glyph;
+      } else line += glyph;
+    }
+    return line;
+  };
+  for (const paragraph of text.split(/\r\n|\r|\n/)) {
+    if (paragraph === "") {
+      lines.push("");
+      continue;
+    }
+    let line = "";
+    for (const word of paragraph.trim().split(/\s+/))
+      line = appendWord(word, line);
+    lines.push(line);
+  }
+  if (!lines.length) lines.push("");
+  const ascender = font.heightAtSize(size, { descender: false });
+  const descender = Math.max(
+    0,
+    font.heightAtSize(size, { descender: true }) - ascender,
+  );
+  const lineHeight = size * 1.2;
+  return {
+    lines,
+    padding,
+    requiredHeight:
+      padding * 2 + ascender + descender + lineHeight * (lines.length - 1),
+    lineHeight,
+    fontSize: size,
+    ascender,
+  };
+}
+
+export async function measureTextOverlay(
+  overlay: Overlay,
+  widthPoints: number,
+): Promise<TextOverlayMeasurement> {
+  const family = overlay.fontFamily ?? "sans";
+  const italic = overlay.italic ?? false;
+  const bold = overlay.bold ?? false;
+  const name =
+    family === "serif"
+      ? bold
+        ? italic
+          ? StandardFonts.TimesRomanBoldItalic
+          : StandardFonts.TimesRomanBold
+        : italic
+          ? StandardFonts.TimesRomanItalic
+          : StandardFonts.TimesRoman
+      : family === "mono"
+        ? bold
+          ? italic
+            ? StandardFonts.CourierBoldOblique
+            : StandardFonts.CourierBold
+          : italic
+            ? StandardFonts.CourierOblique
+            : StandardFonts.Courier
+        : bold
+          ? italic
+            ? StandardFonts.HelveticaBoldOblique
+            : StandardFonts.HelveticaBold
+          : italic
+            ? StandardFonts.HelveticaOblique
+            : StandardFonts.Helvetica;
+  const pdf = await PDFDocument.create();
+  return measureTextWithFont(overlay, widthPoints, await pdf.embedFont(name));
 }
 
 function applyOverlay(
@@ -302,17 +411,20 @@ function applyOverlay(
   try {
     if (overlay.kind === "text") {
       const font = pdfFont(overlay, fonts);
-      const text = overlay.text ?? "";
-      validateStandardFontText(text, font);
-      const size = overlay.fontSize ?? 18;
-      if (!Number.isFinite(size) || size <= 0)
-        throw new Error("Text size must be a positive number.");
-      const ascender = font.heightAtSize(size, { descender: false });
-      text.split(/\r?\n/).forEach((line, index) =>
+      const measured = measureTextWithFont(overlay, rect.width, font);
+      if (rect.height + 1e-6 < measured.requiredHeight)
+        throw new Error(
+          "Text does not fit this box height. Increase the box height or shorten the text.",
+        );
+      measured.lines.forEach((line, index) =>
         page.drawText(line, {
-          x: 0,
-          y: rect.height - ascender - index * size * 1.2,
-          size,
+          x: measured.padding,
+          y:
+            rect.height -
+            measured.padding -
+            measured.ascender -
+            index * measured.lineHeight,
+          size: measured.fontSize,
           font,
           color,
           opacity,
@@ -321,19 +433,41 @@ function applyOverlay(
       return;
     }
     if (overlay.kind === "line" || overlay.kind === "arrow") {
-      const start = { x: 0, y: 0 };
-      const end = { x: rect.width, y: rect.height };
-      page.drawLine({ start, end, thickness, color, opacity });
+      const start = overlay.start ?? { x: 0, y: 1 };
+      const end = overlay.end ?? { x: 1, y: 0 };
+      if (
+        ![start.x, start.y, end.x, end.y].every(
+          (value) => Number.isFinite(value) && value >= 0 && value <= 1,
+        )
+      )
+        throw new Error(
+          "Line endpoints must be finite normalized coordinates between 0 and 1.",
+        );
+      const startPoint = {
+        x: start.x * rect.width,
+        y: (1 - start.y) * rect.height,
+      };
+      const endPoint = { x: end.x * rect.width, y: (1 - end.y) * rect.height };
+      page.drawLine({
+        start: startPoint,
+        end: endPoint,
+        thickness,
+        color,
+        opacity,
+      });
       if (overlay.kind === "arrow") {
-        const angle = Math.atan2(end.y - start.y, end.x - start.x);
+        const angle = Math.atan2(
+          endPoint.y - startPoint.y,
+          endPoint.x - startPoint.x,
+        );
         const head = Math.max(8, thickness * 4);
         for (const side of [-1, 1]) {
           const a = angle + Math.PI + (side * Math.PI) / 6;
           page.drawLine({
-            start: end,
+            start: endPoint,
             end: {
-              x: end.x + Math.cos(a) * head,
-              y: end.y + Math.sin(a) * head,
+              x: endPoint.x + Math.cos(a) * head,
+              y: endPoint.y + Math.sin(a) * head,
             },
             thickness,
             color,

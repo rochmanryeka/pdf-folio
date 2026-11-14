@@ -33,3 +33,36 @@ test("toolbar invokes PDF editing actions and disables undo without history", as
   await user.click(screen.getByRole("button", { name: "Zoom in" }));
   expect(zoom).toHaveBeenCalledWith(110);
 });
+
+test("shape tools arm without inserting an annotation and announce the active mode", async () => {
+  const add = vi.fn();
+  render(
+    <EditorToolbar
+      ready
+      canUndo={false}
+      canRedo={false}
+      zoom={100}
+      onUndo={() => {}}
+      onRedo={() => {}}
+      onRotate={() => {}}
+      onSignature={() => {}}
+      onImage={() => {}}
+      onZoom={() => {}}
+      onFit={() => {}}
+      onAddAnnotation={add}
+      activeTool="arrow"
+    />,
+  );
+  expect(screen.getByRole("button", { name: "Add arrow" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await userEvent
+    .setup()
+    .click(screen.getByRole("button", { name: "Add rectangle" }));
+  expect(add).toHaveBeenCalledWith("rectangle");
+  expect(screen.getByRole("button", { name: "Add rectangle" })).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
+});
