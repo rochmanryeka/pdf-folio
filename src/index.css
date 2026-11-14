@@ -240,82 +240,78 @@ h3 {
   color: var(--muted-foreground);
   background: var(--secondary);
 }
-.document-header {
-  height: 93px;
-  padding: 0 28px;
+.document-summary {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  flex-shrink: 0;
-  background: var(--card);
+  gap: 9px;
+  align-items: flex-start;
+  padding: 12px 0 13px;
+  margin-bottom: 9px;
   border-bottom: 1px solid var(--border);
 }
-.document-title {
-  display: flex;
-  align-items: center;
-  gap: 13px;
+.document-summary-details {
   min-width: 0;
-}
-.document-title > div {
-  min-width: 0;
+  flex: 1;
 }
 .pdf-file-icon {
   color: var(--primary);
-  border-radius: 10px;
-  width: 42px;
-  height: 48px;
+  border-radius: 6px;
+  width: 30px;
+  height: 34px;
+  flex-shrink: 0;
   display: grid;
   place-items: center;
   background: color-mix(in srgb, var(--primary) 10%, transparent);
   border: 1px solid color-mix(in srgb, var(--primary) 12%, transparent);
 }
-.document-title h1 {
-  font-size: 16px;
+.document-summary h1 {
+  font-size: 11px;
   letter-spacing: -0.25px;
-  white-space: nowrap;
+  white-space: normal;
   text-overflow: ellipsis;
   overflow: hidden;
-  max-width: 38vw;
+  overflow-wrap: anywhere;
 }
 .document-meta {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 10px;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: 8px;
   color: var(--muted-foreground);
-  margin-top: 7px;
+  margin-top: 5px;
 }
 .demo-label {
   border: 1px solid var(--border);
   border-radius: 4px;
-  font-size: 9px;
-  padding: 1px 6px;
-  margin-left: 4px;
+  font-size: 7px;
+  padding: 1px 4px;
 }
 .document-actions {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  margin-top: 9px;
 }
 .document-actions > button {
-  font-size: 12px;
-  height: 38px;
-}
-.document-actions > button:last-child {
-  box-shadow: 0 3px 12px #ed4a4218;
+  height: 30px;
+  min-width: 0;
+  padding: 0 7px;
+  gap: 4px;
+  font-size: 9px;
 }
 .session-status {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   color: var(--muted-foreground);
-  font-size: 10px;
-  margin-right: 12px;
+  font-size: 8px;
+  margin-top: 6px;
 }
 .session-status svg {
   color: var(--green);
+  width: 12px;
+  height: 12px;
 }
 .editor-layout {
   display: flex;
@@ -673,99 +669,9 @@ h3 {
   padding: 29px 22px 14px;
   background: var(--panel);
 }
-.eyebrow {
-  font-size: 8px;
-  letter-spacing: 1.6px;
-  font-weight: 600;
-  color: var(--muted-foreground);
-}
-.tools-panel-heading h2 {
-  font-weight: 500;
-  font-size: 25px;
-  line-height: 1.32;
-  letter-spacing: -0.8px;
-  margin-top: 13px;
-}
-.tools-panel-heading p {
-  font-size: 11px;
-  line-height: 1.8;
-  max-width: 225px;
-  color: var(--muted-foreground);
-  margin-top: 12px;
-}
-.tool-card-list {
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-  margin-top: 26px;
-}
-.tool-card {
-  display: flex;
-  align-items: center;
-  text-align: left;
-  gap: 11px;
-  width: 100%;
-  padding: 15px 11px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  transition:
-    background 0.15s,
-    border 0.15s;
-}
-.tool-card:hover {
-  background: var(--accent);
-  border-color: var(--muted-foreground);
-}
-.tool-card:disabled {
-  opacity: 0.4;
-}
-.tool-card.featured {
-  border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
-  background: color-mix(in srgb, var(--primary) 5%, var(--card));
-}
-.tool-card > svg:last-child {
-  margin-left: auto;
-  color: var(--muted-foreground);
-}
-.tool-card.featured > svg:last-child {
-  color: var(--primary);
-}
-.tool-icon {
-  width: 34px;
-  height: 36px;
-  display: grid;
-  place-items: center;
-  border-radius: 7px;
-  background: color-mix(in srgb, var(--primary) 10%, transparent);
-  color: var(--primary);
-  flex-shrink: 0;
-}
-.tool-icon.image {
-  background: #7689db18;
-  color: #9ca7ec;
-}
-.tool-icon.rotate {
-  background: #d7ad5a16;
-  color: #d7ad6d;
-}
-[data-theme="light"] .tool-icon.image {
-  color: #5263aa;
-}
-[data-theme="light"] .tool-icon.rotate {
-  color: #90651b;
-}
-.tool-card strong {
-  display: block;
-  font-weight: 500;
-  font-size: 11px;
-}
-.tool-card small {
-  display: block;
-  color: var(--muted-foreground);
-  font-size: 9px;
-  margin-top: 5px;
-  white-space: nowrap;
+.tools-panel-title {
+  font-size: 12px;
+  margin-bottom: 14px;
 }
 .quick-tip {
   position: relative;
@@ -1263,8 +1169,7 @@ h3 {
   .page-thumb {
     padding-top: 13px;
   }
-  .app-header,
-  .document-header {
+  .app-header {
     padding-left: 33px;
     padding-right: 33px;
   }
@@ -1300,20 +1205,11 @@ h3 {
   .select-tool {
     display: none;
   }
-  .tool-card {
-    padding-left: 9px;
-    padding-right: 9px;
-    gap: 8px;
-  }
-  .tool-card small {
-    font-size: 8px;
-  }
+
   .footer-ready {
     display: none;
   }
-  .session-status {
-    display: none;
-  }
+
   .header-breadcrumb {
     gap: 10px;
   }
@@ -1342,9 +1238,7 @@ h3 {
   .header-breadcrumb {
     display: none;
   }
-  .document-title h1 {
-    max-width: 50vw;
-  }
+
 }
 @media (min-width: 701px) and (max-width: 900px) {
   .tool-actions button > span {
@@ -1403,52 +1297,15 @@ h3 {
   .avatar {
     display: none;
   }
-  .document-header {
-    height: 103px;
-    padding: 12px 15px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    align-content: center;
-  }
-  .document-title {
-    gap: 8px;
-    width: calc(100% - 5px);
-  }
   .pdf-file-icon {
-    height: 31px;
-    width: 28px;
-    border-radius: 6px;
+    height: 30px;
+    width: 27px;
   }
   .pdf-file-icon svg {
     width: 17px;
   }
-  .document-title h1 {
-    font-size: 12px;
-    max-width: calc(100vw - 72px);
-  }
   .document-meta {
-    font-size: 8px;
-    gap: 5px;
-    margin-top: 4px;
-  }
-  .demo-label {
-    font-size: 7px;
-    margin-left: 0;
-  }
-  .document-actions {
-    gap: 7px;
-    margin-left: auto;
-  }
-  .document-actions > button {
-    height: 30px;
-    font-size: 10px;
-    padding: 0 11px;
-    border-radius: 6px;
-  }
-  .document-actions > button svg {
-    width: 12px;
-    height: 12px;
+    gap: 3px;
   }
   .icon-rail {
     width: 45px;
@@ -1466,7 +1323,7 @@ h3 {
   .pages-panel {
     position: absolute;
     left: 45px;
-    top: 161px;
+    top: 58px;
     bottom: 0;
     z-index: 10;
     width: 184px;

@@ -3,12 +3,10 @@ import type { ChangeEvent, DragEvent } from "react";
 import { Rnd } from "react-rnd";
 import {
   ArrowDownToLine,
-  ArrowUpRight,
   Check,
   ChevronLeft,
   ChevronRight,
   FileText,
-  FolderOpen,
   Grid2X2,
   HelpCircle,
   ImagePlus,
@@ -19,7 +17,6 @@ import {
   PanelLeftClose,
   PenLine,
   Plus,
-  RotateCw,
   ShieldCheck,
   Sun,
   Trash2,
@@ -554,50 +551,14 @@ export default function App() {
           <span className="avatar">R</span>
         </div>
       </header>
-      <div className="document-header">
-        <div className="document-title">
-          <span className="pdf-file-icon">
-            <FileText size={22} />
-          </span>
-          <div>
-            <h1>{fileName || "PDF Studio"}</h1>
-            <div className="document-meta">
-              <span>{pages.length} pages</span>
-              <span>·</span>
-              <span>
-                {fileSize < 1024 * 1024
-                  ? `${Math.ceil(fileSize / 1024)} KB`
-                  : `${(fileSize / 1024 / 1024).toFixed(1)} MB`}
-              </span>
-              <span className="demo-label">
-                {fileName === "Partnership proposal.pdf"
-                  ? "Demo document"
-                  : "Local document"}
-              </span>
-            </div>
-          </div>
-        </div>
-        <div className="document-actions">
-          <span className="session-status">
-            <Check size={13} />
-            {history.past.length ? "Changes in this session" : "Ready to edit"}
-          </span>
-          <Button
-            variant="outline"
-            onClick={() => pdfInput.current?.click()}
-            disabled={busy}
-          >
-            <FolderOpen />
-            <span>Open PDF</span>
-          </Button>
-          <Button onClick={download} disabled={!bytes || busy || exporting}>
-            <ArrowDownToLine />
-            <span>{exporting ? "Processing…" : "Download PDF"}</span>
-          </Button>
-        </div>
-      </div>
       <div className="editor-layout">
         <nav className="icon-rail" aria-label="Editor panels">
+          <button title="Open PDF" aria-label="Open PDF" onClick={() => pdfInput.current?.click()}>
+            <Upload size={19} />
+          </button>
+          <button title="Download PDF" aria-label="Download PDF" onClick={download} disabled={!bytes || busy || exporting}>
+            <ArrowDownToLine size={19} />
+          </button>
           <button
             title="Pages"
             aria-label="Pages panel"
@@ -646,6 +607,27 @@ export default function App() {
                 <PanelLeftClose size={16} />
               </Button>
             </div>
+            {tab === "pages" && <section className="document-summary" aria-label="Document">
+              <span className="pdf-file-icon"><FileText size={18} /></span>
+              <div className="document-summary-details">
+                <h1>{fileName || "PDF Studio"}</h1>
+                <div className="document-meta">
+                  <span>{pages.length} pages</span><span>·</span>
+                  <span>{fileSize < 1024 * 1024 ? `${Math.ceil(fileSize / 1024)} KB` : `${(fileSize / 1024 / 1024).toFixed(1)} MB`}</span>
+                  <span className="demo-label">{fileName === "Partnership proposal.pdf" ? "Demo document" : "Local document"}</span>
+                </div>
+                <span className="session-status"><Check size={12} />{history.past.length ? "Changes in this session" : "Ready to edit"}</span>
+                <div className="document-actions">
+                  <Button variant="outline" onClick={() => pdfInput.current?.click()}>
+                    <Upload /><span>Open PDF</span>
+                  </Button>
+                  <Button onClick={download} disabled={!bytes || busy || exporting}>
+                    <ArrowDownToLine /><span>{exporting ? "Processing…" : "Download PDF"}</span>
+                  </Button>
+                </div>
+              </div>
+            </section>}
+            {tab !== "pages" && <h1 className="sr-only">{fileName || "PDF Studio"}</h1>}
             <div className="panel-subtitle">
               {tab === "pages"
                 ? `${pages.length} pages in document`
@@ -749,6 +731,7 @@ export default function App() {
             </button>
           </aside>
         )}
+        {!sidebar && <h1 className="sr-only">{fileName || "PDF Studio"}</h1>}
         <main className="editor-main">
           <EditorToolbar
             ready={!!bytes && !busy}
@@ -981,59 +964,7 @@ export default function App() {
           </footer>
         </main>
         <aside className="tools-panel">
-          <div className="tools-panel-heading">
-            <span className="eyebrow">MAKE IT YOURS</span>
-            <h2>
-              Finishing touches,
-              <br />
-              without the fuss.
-            </h2>
-            <p>Everything you need to get your document ready.</p>
-          </div>
-          <div className="tool-card-list">
-            <button
-              className="tool-card featured"
-              onClick={() => setSignatureOpen(true)}
-              disabled={!bytes || busy}
-            >
-              <span className="tool-icon">
-                <PenLine size={20} />
-              </span>
-              <span>
-                <strong>Signature</strong>
-                <small>Draw, type, or upload</small>
-              </span>
-              <ArrowUpRight size={17} />
-            </button>
-            <button
-              className="tool-card"
-              onClick={() => chooseImage("image")}
-              disabled={!bytes || busy}
-            >
-              <span className="tool-icon image">
-                <ImagePlus size={20} />
-              </span>
-              <span>
-                <strong>Add image</strong>
-                <small>Logos, stamps, and more</small>
-              </span>
-              <Plus size={16} />
-            </button>
-            <button
-              className="tool-card"
-              onClick={rotate}
-              disabled={!bytes || busy}
-            >
-              <span className="tool-icon rotate">
-                <RotateCw size={20} />
-              </span>
-              <span>
-                <strong>Rotate page</strong>
-                <small>90° clockwise</small>
-              </span>
-              <Plus size={16} />
-            </button>
-          </div>
+          <h2 className="tools-panel-title">Properties</h2>
           {activeOverlay ? (
             <div
               className={`object-properties ${isMobile ? "mobile-properties" : ""}`}
@@ -1198,7 +1129,7 @@ export default function App() {
             </span>
           </div>
           <div className="studio-version">
-            FOLIO STUDIO <span>v1.0</span>
+            FOLIO STUDIO <span>v1.2.0</span>
           </div>
         </aside>
       </div>

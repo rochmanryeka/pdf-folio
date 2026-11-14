@@ -1,6 +1,6 @@
 # Folio — PDF Studio
 
-Public app: https://pdffolio.ryeka.my.id<br />
+Public app: https://pdf-folio.ryeka.my.id<br />
 Source: https://github.com/rochmanryeka/pdf-folio (private repository)
 
 ## Annotation tools
@@ -9,7 +9,7 @@ The English-language workspace supports added text, lines, arrows, rectangles, c
 
 ## Deployment
 
-Netlify site: `pdffolio-ryeka` (`e40ac12e-0415-4100-ae3d-2d4446af0fa9`). Build command: `npm run build`; publish directory: `dist`; Node 24. DNS CNAME `pdffolio.ryeka.my.id` points to `pdffolio-ryeka.netlify.app`.
+Netlify site: `pdffolio-ryeka` (`e40ac12e-0415-4100-ae3d-2d4446af0fa9`). Build command: `npm run build`; publish directory: `dist`; Node 24. DNS CNAME `pdf-folio.ryeka.my.id` points to `pdffolio-ryeka.netlify.app`.
 
 ```bash
 npm ci
