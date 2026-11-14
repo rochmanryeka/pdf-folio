@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.0
+
+- Add padded, wrapped text annotations with measured height and automatic reflow on resize, preventing clipped glyphs.
+- Draw lines, arrows, rectangles, circles, and highlights manually with mouse or touch, including reverse and horizontal drags.
+- Add an editor context menu for object-specific edit/properties/duplicate/delete actions and workspace drawing/document actions.
+- Support Escape cancellation and keyboard context-menu access while preserving native copy/paste menus in text inputs.
+- Verify preview/export glyph positions at 85% and 125% zoom.
+
 ## 1.2.1
 
 - Move the single Open PDF and Download PDF actions to the right-hand side of the main header.

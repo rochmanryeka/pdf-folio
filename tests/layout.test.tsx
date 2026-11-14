@@ -59,5 +59,5 @@ test("keeps the single header open and download actions available when the sideb
 test("updates the studio version and mobile pages panel starts below the global header", async () => {
   render(<App />);
   await screen.findByText("Partnership proposal.pdf");
-  expect(screen.getByText("v1.2.1")).toBeTruthy();
+  expect(screen.getByText("v1.3.0")).toBeTruthy();
 });

@@ -50,6 +50,7 @@ describe("vector annotation PDF export", () => {
         [
           {
             ...common,
+            height: 0.4,
             kind: "text",
             text: "Partnership proposal\nNext steps",
             fontSize: 18,
@@ -61,8 +62,11 @@ describe("vector annotation PDF export", () => {
     expect(pdf.getPage(0).node.Contents()).toBeTruthy();
     const output = content(new Uint8Array(await pdf.save()));
     expect(output).toMatch(/BT[\s\S]*Tj/);
-    expect(output).toContain("<506172746E6572736869702070726F706F73616C> Tj");
-    expect(output).toContain("<4E657874207374657073> Tj");
+    const shownText = [...output.matchAll(/<([\dA-F]+)> Tj/g)]
+      .map(([, hex]) => Buffer.from(hex, "hex").toString("latin1"))
+      .join("")
+      .toLowerCase();
+    expect(shownText).toContain("partnershipproposalnextsteps");
     expect(output).toContain("/Rotate 0");
     expect(output).toContain("/CropBox [ 30 40 330 540 ]");
     expect(output).toContain("/BaseFont /Helvetica");
@@ -200,7 +204,7 @@ describe("vector annotation PDF export", () => {
         ],
       ),
     );
-    expect(output).toContain("1 0 0 1 0 36.34000000000003 Tm");
+    expect(output).toContain("1 0 0 1 6 30.34000000000003 Tm");
   });
 
   it("keeps the image transform independent from vector graphics state", async () => {

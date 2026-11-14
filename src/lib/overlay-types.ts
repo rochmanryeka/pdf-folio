@@ -26,4 +26,9 @@ export type Overlay = {
   italic?: boolean;
   strokeWidth?: number;
   opacity?: number;
+  /** Text inset in PDF points. Defaults to 6 points. */
+  textPadding?: number;
+  /** Manual endpoints for line/arrow, normalized within the overlay box. */
+  start?: { x: number; y: number };
+  end?: { x: number; y: number };
 };

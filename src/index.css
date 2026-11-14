@@ -1680,3 +1680,39 @@ h3 {
     bottom: 102px;
   }
 }
+.page-stage:has(.drawing-preview), .page-stage.is-drawing { cursor: crosshair; }
+.page-stage.is-drawing { touch-action: none; user-select: none; }
+.page-stage.is-drawing .object-hit { cursor: crosshair; }
+.tool-instruction { padding: 7px 12px; text-align: center; font-size: 11px; color: var(--muted-foreground); background: var(--card); border-bottom: 1px solid var(--border); }
+.context-menu-area { position: relative; flex: 1; min-height: 0; display: flex; width: 100%; }
+.drawing-preview { position: absolute; pointer-events: none; z-index: 10; }
+.editor-context-menu {
+  z-index: 120;
+  min-width: 190px;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: 0 8px 28px #0005;
+  outline: none;
+}
+.context-menu-item {
+  display: flex;
+  width: 100%;
+  min-height: 32px;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 9px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--foreground);
+  font-size: 12px;
+  text-align: left;
+  outline: none;
+}
+.context-menu-item[data-highlighted] { background: var(--accent); }
+.context-menu-item[data-disabled] { color: var(--muted-foreground); opacity: .5; }
+.context-menu-item.destructive { color: var(--destructive); }
+.context-menu-separator { height: 1px; margin: 4px 3px; background: var(--border); }

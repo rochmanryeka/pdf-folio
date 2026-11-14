@@ -33,8 +33,14 @@ import {
 import { SignatureDialog } from "@/components/SignatureDialog";
 import { EditorToolbar } from "@/components/EditorToolbar";
 import { OverlayVisual } from "@/components/OverlayVisual";
+import { EditorContextMenu } from "@/components/EditorContextMenu";
 import { PdfCanvas } from "@/components/PdfCanvas";
-import { createDemoPdf, inspectPdf, exportPdf } from "@/lib/pdf-engine";
+import {
+  createDemoPdf,
+  inspectPdf,
+  exportPdf,
+  measureTextOverlay,
+} from "@/lib/pdf-engine";
 import type { Overlay, OverlayKind, PageInfo } from "@/lib/pdf-engine";
 import {
   createHistory,
@@ -43,6 +49,8 @@ import {
   redoHistory,
 } from "@/lib/editor-state";
 import type { EditState } from "@/lib/editor-state";
+import { createDrawingOverlay } from "@/lib/drawing";
+import type { Point } from "@/lib/drawing";
 
 export default function App() {
   const [bytes, setBytes] = useState<Uint8Array | null>(null),
@@ -56,6 +64,21 @@ export default function App() {
   const [pageIndex, setPageIndex] = useState(0),
     [zoom, setZoom] = useState(85),
     [selected, setSelected] = useState<string | null>(null);
+  const [activeTool, setActiveTool] = useState<
+    "line" | "arrow" | "rectangle" | "circle" | "highlight" | null
+  >(null);
+  const [drawing, setDrawing] = useState<{
+    kind: "line" | "arrow" | "rectangle" | "circle" | "highlight";
+    from: Point;
+    to: Point;
+  } | null>(null);
+  const drawingRef = useRef<{
+    pointerId: number;
+    kind: "line" | "arrow" | "rectangle" | "circle" | "highlight";
+    from: Point;
+  } | null>(null);
+  const ignoreNextObjectClick = useRef(false);
+  const pageStageRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(true),
     [exporting, setExporting] = useState(false),
     [signatureOpen, setSignatureOpen] = useState(false),
@@ -87,39 +110,115 @@ export default function App() {
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
   const addAnnotation = useCallback(
     (kind: OverlayKind) => {
-      if (kind === "text") {
-        setTextValue("");
-        setEditingTextId(null);
-        setTextOpen(true);
+      if (kind !== "text") {
+        setSelected(null);
+        setActiveTool(
+          kind as "line" | "arrow" | "rectangle" | "circle" | "highlight",
+        );
+        setDrawing(null);
         return;
       }
-      const overlay: Overlay = {
-        id: crypto.randomUUID(),
-        pageIndex,
-        kind,
-        x: 0.15,
-        y: 0.18,
-        width: kind === "line" || kind === "arrow" ? 0.38 : 0.3,
-        height: kind === "line" || kind === "arrow" ? 0.08 : 0.12,
-        color: kind === "highlight" ? "#facc15" : "#162c4d",
-        fill: kind === "highlight" ? "#facc15" : "none",
-        strokeWidth: 2,
-        opacity: kind === "highlight" ? 0.3 : 1,
-      };
-      setHistory((h) =>
-        commitHistory(h, {
-          ...h.present,
-          overlays: [...h.present.overlays, overlay],
-        }),
-      );
-      setSelected(overlay.id);
-      setNotice(`${kind[0].toUpperCase()}${kind.slice(1)} added.`);
+      setTextValue("");
+      setEditingTextId(null);
+      setTextOpen(true);
     },
     [pageIndex],
   );
-  function submitText() {
-    const text = textValue.trim();
-    if (!text) return;
+  function stagePoint(event: React.PointerEvent): Point {
+    const rect = pageStageRef.current!.getBoundingClientRect();
+    return {
+      x: Math.max(0, Math.min(rect.width, event.clientX - rect.left)),
+      y: Math.max(0, Math.min(rect.height, event.clientY - rect.top)),
+    };
+  }
+  function beginDrawing(event: React.PointerEvent<HTMLDivElement>) {
+    // React portals bubble through this component tree, but menu interactions
+    // are not page-pointer events and must not clear the context target.
+    if (!event.currentTarget.contains(event.target as Node)) return;
+    if (!activeTool) {
+      if (
+        event.button === 0 &&
+        !(event.target as HTMLElement).closest(".pdf-object")
+      )
+        setSelected(null);
+      return;
+    }
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const from = stagePoint(event);
+    drawingRef.current = { pointerId: event.pointerId, kind: activeTool, from };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setDrawing({ kind: activeTool, from, to: from });
+  }
+  function moveDrawing(event: React.PointerEvent<HTMLDivElement>) {
+    const current = drawingRef.current;
+    if (!current || current.pointerId !== event.pointerId) return;
+    event.preventDefault();
+    setDrawing({
+      kind: current.kind,
+      from: current.from,
+      to: stagePoint(event),
+    });
+  }
+  function finishDrawing(
+    event: React.PointerEvent<HTMLDivElement>,
+    cancelled = false,
+  ) {
+    const current = drawingRef.current;
+    if (!current || current.pointerId !== event.pointerId) return;
+    const to = stagePoint(event);
+    if (
+      cancelled ||
+      Math.hypot(to.x - current.from.x, to.y - current.from.y) < 3
+    ) {
+      drawingRef.current = null;
+      setDrawing(null);
+      return;
+    }
+    drawingRef.current = null;
+    setDrawing(null);
+    setActiveTool(null);
+    ignoreNextObjectClick.current = true;
+    setTimeout(() => {
+      ignoreNextObjectClick.current = false;
+    }, 0);
+    const overlay = createDrawingOverlay(
+      current.kind,
+      pageIndex,
+      current.from,
+      to,
+      pageWidth,
+      pageHeight,
+      crypto.randomUUID(),
+    );
+    setHistory((h) =>
+      commitHistory(h, {
+        ...h.present,
+        overlays: [...h.present.overlays, overlay],
+      }),
+    );
+    setSelected(overlay.id);
+  }
+  async function fitTextOverlay(
+    overlay: Overlay,
+    patch: Partial<Overlay> = {},
+  ): Promise<Overlay> {
+    const next = { ...overlay, ...patch, textPadding: 6 };
+    const measurement = await measureTextOverlay(
+      next,
+      next.width * displayWidth,
+    );
+    const required = measurement.requiredHeight / displayHeight;
+    if (required > 1)
+      throw new Error(
+        "Text is taller than the page. Shorten the text or reduce the font size.",
+      );
+    return { ...next, height: required, y: Math.min(next.y, 1 - required) };
+  }
+  async function submitText() {
+    const text = textValue;
+    if (!text.trim()) return;
     const common = {
       text,
       color: textColor,
@@ -128,33 +227,39 @@ export default function App() {
       bold,
       italic,
     };
-    if (editingTextId) updateTextOverlay(editingTextId, common);
-    else {
-      const overlay: Overlay = {
-        id: crypto.randomUUID(),
-        pageIndex,
-        kind: "text",
-        x: 0.12,
-        y: 0.14,
-        width: 0.42,
-        height: Math.min(
-          0.32,
-          Math.max(
-            0.08,
-            (text.split("\n").length * fontSize * 1.2) / displayHeight,
-          ),
-        ),
-        ...common,
-      };
-      setHistory((h) =>
-        commitHistory(h, {
-          ...h.present,
-          overlays: [...h.present.overlays, overlay],
-        }),
+    try {
+      if (editingTextId) {
+        const existing = edits.overlays.find((o) => o.id === editingTextId);
+        if (!existing) return;
+        updateTextOverlay(
+          editingTextId,
+          await fitTextOverlay(existing, common),
+        );
+      } else {
+        const overlay = await fitTextOverlay({
+          id: crypto.randomUUID(),
+          pageIndex,
+          kind: "text",
+          x: 0.12,
+          y: 0.14,
+          width: 0.42,
+          height: 0.08,
+          ...common,
+        });
+        setHistory((h) =>
+          commitHistory(h, {
+            ...h.present,
+            overlays: [...h.present.overlays, overlay],
+          }),
+        );
+        setSelected(overlay.id);
+      }
+      setTextOpen(false);
+    } catch (error) {
+      setError(
+        error instanceof Error ? error.message : "Unable to measure this text.",
       );
-      setSelected(overlay.id);
     }
-    setTextOpen(false);
   }
   function updateTextOverlay(id: string, patch: Partial<Overlay>) {
     setHistory((h) =>
@@ -315,7 +420,14 @@ export default function App() {
       } else if (e.key === "Delete" || e.key === "Backspace") {
         e.preventDefault();
         deleteSelected();
-      } else if (e.key === "Escape") setSelected(null);
+      } else if (e.key === "Escape") {
+        if (drawingRef.current) {
+          drawingRef.current = null;
+          setDrawing(null);
+        }
+        setActiveTool(null);
+        setSelected(null);
+      }
     }
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
@@ -531,13 +643,27 @@ export default function App() {
             <span />
             100% local & private
           </span>
-          <Button variant="outline" className="header-file-action" aria-label="Open PDF" title="Open PDF" onClick={() => pdfInput.current?.click()}>
+          <Button
+            variant="outline"
+            className="header-file-action"
+            aria-label="Open PDF"
+            title="Open PDF"
+            onClick={() => pdfInput.current?.click()}
+          >
             <Upload />
             <span className="header-action-label">Open PDF</span>
           </Button>
-          <Button className="header-file-action" aria-label="Download PDF" title="Download PDF" onClick={download} disabled={!bytes || busy || exporting}>
+          <Button
+            className="header-file-action"
+            aria-label="Download PDF"
+            title="Download PDF"
+            onClick={download}
+            disabled={!bytes || busy || exporting}
+          >
             <ArrowDownToLine />
-            <span className="header-action-label">{exporting ? "Processing…" : "Download PDF"}</span>
+            <span className="header-action-label">
+              {exporting ? "Processing…" : "Download PDF"}
+            </span>
           </Button>
           <Button
             variant="ghost"
@@ -561,7 +687,6 @@ export default function App() {
       </header>
       <div className="editor-layout">
         <nav className="icon-rail" aria-label="Editor panels">
-
           <button
             title="Pages"
             aria-label="Pages panel"
@@ -610,20 +735,39 @@ export default function App() {
                 <PanelLeftClose size={16} />
               </Button>
             </div>
-            {tab === "pages" && <section className="document-summary" aria-label="Document">
-              <span className="pdf-file-icon"><FileText size={18} /></span>
-              <div className="document-summary-details">
-                <h1>{fileName || "PDF Studio"}</h1>
-                <div className="document-meta">
-                  <span>{pages.length} pages</span><span>·</span>
-                  <span>{fileSize < 1024 * 1024 ? `${Math.ceil(fileSize / 1024)} KB` : `${(fileSize / 1024 / 1024).toFixed(1)} MB`}</span>
-                  <span className="demo-label">{fileName === "Partnership proposal.pdf" ? "Demo document" : "Local document"}</span>
+            {tab === "pages" && (
+              <section className="document-summary" aria-label="Document">
+                <span className="pdf-file-icon">
+                  <FileText size={18} />
+                </span>
+                <div className="document-summary-details">
+                  <h1>{fileName || "PDF Studio"}</h1>
+                  <div className="document-meta">
+                    <span>{pages.length} pages</span>
+                    <span>·</span>
+                    <span>
+                      {fileSize < 1024 * 1024
+                        ? `${Math.ceil(fileSize / 1024)} KB`
+                        : `${(fileSize / 1024 / 1024).toFixed(1)} MB`}
+                    </span>
+                    <span className="demo-label">
+                      {fileName === "Partnership proposal.pdf"
+                        ? "Demo document"
+                        : "Local document"}
+                    </span>
+                  </div>
+                  <span className="session-status">
+                    <Check size={12} />
+                    {history.past.length
+                      ? "Changes in this session"
+                      : "Ready to edit"}
+                  </span>
                 </div>
-                <span className="session-status"><Check size={12} />{history.past.length ? "Changes in this session" : "Ready to edit"}</span>
-
-              </div>
-            </section>}
-            {tab !== "pages" && <h1 className="sr-only">{fileName || "PDF Studio"}</h1>}
+              </section>
+            )}
+            {tab !== "pages" && (
+              <h1 className="sr-only">{fileName || "PDF Studio"}</h1>
+            )}
             <div className="panel-subtitle">
               {tab === "pages"
                 ? `${pages.length} pages in document`
@@ -740,6 +884,7 @@ export default function App() {
             onSignature={() => setSignatureOpen(true)}
             onImage={() => chooseImage("image")}
             onAddAnnotation={addAnnotation}
+            activeTool={activeTool}
             onZoom={setZoom}
             onFit={() =>
               setZoom(
@@ -753,176 +898,272 @@ export default function App() {
               )
             }
           />
-          <div
-            className="workspace"
-            ref={workspace}
-            onPointerDown={(e) => {
-              if (e.target === e.currentTarget) setSelected(null);
-            }}
-          >
-            <div className="workspace-heading">
-              <span>
-                <span className="status-dot" />
-                EDIT MODE
-              </span>
-              <span>
-                Page {pageIndex + 1} of {pages.length || "—"}
-              </span>
+          {activeTool && (
+            <div className="tool-instruction" role="status">
+              Click and drag on the page to draw. Esc to cancel.
             </div>
-            {busy ? (
-              <div className="workspace-loading">
-                <div className="loading-spinner" />
-                Preparing document…
+          )}
+          <EditorContextMenu
+            selected={activeOverlay || null}
+            canUndo={history.past.length > 0}
+            canRedo={history.future.length > 0}
+            busy={!bytes || busy || exporting}
+            onSelectAtTarget={(id) => setSelected(id)}
+            onEditText={() => activeOverlay && editText(activeOverlay)}
+            onProperties={() => setMobileProperties(true)}
+            onDuplicate={duplicateSelected}
+            onDelete={deleteSelected}
+            onAddText={() => addAnnotation("text")}
+            onDraw={(kind) => addAnnotation(kind)}
+            onSignature={() => setSignatureOpen(true)}
+            onImage={() => chooseImage("image")}
+            onUndo={undo}
+            onRedo={redo}
+            onDownload={() => void download()}
+          >
+            <div
+              className="workspace"
+              ref={workspace}
+              onPointerDown={(e) => {
+                if (e.target === e.currentTarget) setSelected(null);
+              }}
+            >
+              <div className="workspace-heading">
+                <span>
+                  <span className="status-dot" />
+                  EDIT MODE
+                </span>
+                <span>
+                  Page {pageIndex + 1} of {pages.length || "—"}
+                </span>
               </div>
-            ) : bytes ? (
-              <div
-                className="page-stage"
-                style={{ width: pageWidth, height: pageHeight }}
-                onPointerDown={(e) => {
-                  if ((e.target as HTMLElement).tagName === "CANVAS")
-                    setSelected(null);
-                }}
-              >
-                <PdfCanvas
-                  bytes={bytes}
-                  pageIndex={pageIndex}
-                  rotation={rotation}
-                  width={pageWidth}
-                  onError={reportError}
-                />
-                {edits.overlays
-                  .filter((o) => o.pageIndex === pageIndex)
-                  .map((o) => (
-                    <Rnd
-                      key={o.id}
-                      bounds="parent"
-                      lockAspectRatio={
-                        o.kind === "image" || o.kind === "signature"
-                      }
-                      size={{
-                        width: o.width * pageWidth,
-                        height: o.height * pageHeight,
-                      }}
-                      position={{ x: o.x * pageWidth, y: o.y * pageHeight }}
-                      minWidth={24}
-                      minHeight={12}
-                      enableResizing={
-                        selected === o.id
-                          ? {
-                              topLeft: true,
-                              topRight: true,
-                              bottomLeft: true,
-                              bottomRight: true,
-                            }
-                          : false
-                      }
-                      onMouseDown={() => setSelected(o.id)}
-                      onTouchStart={() => setSelected(o.id)}
-                      onDragStop={(_, d) =>
-                        updateOverlay(o.id, {
-                          x: Math.max(
-                            0,
-                            Math.min(1 - o.width, d.x / pageWidth),
-                          ),
-                          y: Math.max(
-                            0,
-                            Math.min(1 - o.height, d.y / pageHeight),
-                          ),
-                        })
-                      }
-                      onResizeStop={(_, __, ref, ___, position) =>
-                        updateOverlay(o.id, {
-                          width: ref.offsetWidth / pageWidth,
-                          height: ref.offsetHeight / pageHeight,
-                          x: position.x / pageWidth,
-                          y: position.y / pageHeight,
-                        })
-                      }
-                      className={`pdf-object ${selected === o.id ? "is-selected" : ""}`}
-                      resizeHandleClasses={{
-                        topLeft: "resize-dot",
-                        topRight: "resize-dot",
-                        bottomLeft: "resize-dot",
-                        bottomRight: "resize-dot",
-                      }}
-                    >
-                      <button
-                        className="object-hit"
-                        aria-label={`Select ${o.kind}`}
-                        onFocus={() => setSelected(o.id)}
-                        onClick={() => setSelected(o.id)}
-                        onDoubleClick={() => {
-                          if (o.kind === "text") editText(o);
+              {busy ? (
+                <div className="workspace-loading">
+                  <div className="loading-spinner" />
+                  Preparing document…
+                </div>
+              ) : bytes ? (
+                <div
+                  ref={pageStageRef}
+                  className={`page-stage ${activeTool ? "is-drawing" : ""}`}
+                  style={{ width: pageWidth, height: pageHeight }}
+                  onPointerDownCapture={beginDrawing}
+                  onPointerMove={moveDrawing}
+                  onPointerUp={(e) => finishDrawing(e)}
+                  onPointerCancel={(e) => finishDrawing(e, true)}
+                >
+                  <PdfCanvas
+                    bytes={bytes}
+                    pageIndex={pageIndex}
+                    rotation={rotation}
+                    width={pageWidth}
+                    onError={reportError}
+                  />
+                  {edits.overlays
+                    .filter((o) => o.pageIndex === pageIndex)
+                    .map((o) => (
+                      <Rnd
+                        key={o.id}
+                        bounds="parent"
+                        lockAspectRatio={
+                          o.kind === "image" || o.kind === "signature"
+                        }
+                        size={{
+                          width: o.width * pageWidth,
+                          height: o.height * pageHeight,
                         }}
-                        onKeyDown={(e) => {
-                          if (
-                            [
-                              "ArrowLeft",
-                              "ArrowRight",
-                              "ArrowUp",
-                              "ArrowDown",
-                            ].includes(e.key)
-                          ) {
-                            e.preventDefault();
-                            const step = e.shiftKey ? 0.02 : 0.005;
-                            updateOverlay(o.id, {
-                              x: Math.max(
-                                0,
-                                Math.min(
-                                  1 - o.width,
-                                  o.x +
-                                    (e.key === "ArrowRight"
-                                      ? step
-                                      : e.key === "ArrowLeft"
-                                        ? -step
-                                        : 0),
+                        position={{ x: o.x * pageWidth, y: o.y * pageHeight }}
+                        disableDragging={!!activeTool}
+                        minWidth={
+                          o.kind === "line" ||
+                          o.kind === "arrow" ||
+                          o.kind === "text" ||
+                          o.kind === "image" ||
+                          o.kind === "signature"
+                            ? 24
+                            : 3
+                        }
+                        minHeight={
+                          o.kind === "line" ||
+                          o.kind === "arrow" ||
+                          o.kind === "text" ||
+                          o.kind === "image" ||
+                          o.kind === "signature"
+                            ? 12
+                            : 3
+                        }
+                        enableResizing={
+                          selected === o.id && !activeTool
+                            ? {
+                                topLeft: true,
+                                topRight: true,
+                                bottomLeft: true,
+                                bottomRight: true,
+                              }
+                            : false
+                        }
+                        onMouseDown={(event) => {
+                          if (event.button === 0 && !activeTool)
+                            setSelected(o.id);
+                        }}
+                        onTouchStart={() => setSelected(o.id)}
+                        onDragStop={(_, d) =>
+                          updateOverlay(o.id, {
+                            x: Math.max(
+                              0,
+                              Math.min(1 - o.width, d.x / pageWidth),
+                            ),
+                            y: Math.max(
+                              0,
+                              Math.min(1 - o.height, d.y / pageHeight),
+                            ),
+                          })
+                        }
+                        onResizeStop={(_, __, ref, ___, position) => {
+                          const resized = {
+                            ...o,
+                            width: ref.offsetWidth / pageWidth,
+                            height: ref.offsetHeight / pageHeight,
+                            x: position.x / pageWidth,
+                            y: position.y / pageHeight,
+                          };
+                          if (o.kind === "text") {
+                            void fitTextOverlay(resized)
+                              .then((fitted) => updateOverlay(o.id, fitted))
+                              .catch((error) =>
+                                setError(
+                                  error instanceof Error
+                                    ? error.message
+                                    : "Unable to resize text.",
                                 ),
-                              ),
-                              y: Math.max(
-                                0,
-                                Math.min(
-                                  1 - o.height,
-                                  o.y +
-                                    (e.key === "ArrowDown"
-                                      ? step
-                                      : e.key === "ArrowUp"
-                                        ? -step
-                                        : 0),
-                                ),
-                              ),
-                            });
-                          }
+                              );
+                          } else updateOverlay(o.id, resized);
+                        }}
+                        className={`pdf-object ${selected === o.id ? "is-selected" : ""}`}
+                        resizeHandleClasses={{
+                          topLeft: "resize-dot",
+                          topRight: "resize-dot",
+                          bottomLeft: "resize-dot",
+                          bottomRight: "resize-dot",
                         }}
                       >
-                        <OverlayVisual
-                          overlay={o}
-                          width={o.width * displayWidth}
-                          height={o.height * displayHeight}
-                        />
-                      </button>
-                      {selected === o.id && (
-                        <span className="object-tag">
-                          {o.kind === "signature" ? "Signature" : "Image"}
-                        </span>
-                      )}
-                    </Rnd>
-                  ))}
+                        <button
+                          className="object-hit"
+                          data-overlay-id={o.id}
+                          aria-label={`Select ${o.kind}`}
+                          onFocus={() => setSelected(o.id)}
+                          onClick={(e) => {
+                            if (ignoreNextObjectClick.current) {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              ignoreNextObjectClick.current = false;
+                              return;
+                            }
+                            setSelected(o.id);
+                          }}
+                          onDoubleClick={() => {
+                            if (o.kind === "text") editText(o);
+                          }}
+                          onKeyDown={(e) => {
+                            if (
+                              [
+                                "ArrowLeft",
+                                "ArrowRight",
+                                "ArrowUp",
+                                "ArrowDown",
+                              ].includes(e.key)
+                            ) {
+                              e.preventDefault();
+                              const step = e.shiftKey ? 0.02 : 0.005;
+                              updateOverlay(o.id, {
+                                x: Math.max(
+                                  0,
+                                  Math.min(
+                                    1 - o.width,
+                                    o.x +
+                                      (e.key === "ArrowRight"
+                                        ? step
+                                        : e.key === "ArrowLeft"
+                                          ? -step
+                                          : 0),
+                                  ),
+                                ),
+                                y: Math.max(
+                                  0,
+                                  Math.min(
+                                    1 - o.height,
+                                    o.y +
+                                      (e.key === "ArrowDown"
+                                        ? step
+                                        : e.key === "ArrowUp"
+                                          ? -step
+                                          : 0),
+                                  ),
+                                ),
+                              });
+                            }
+                          }}
+                        >
+                          <OverlayVisual
+                            overlay={o}
+                            width={o.width * displayWidth}
+                            height={o.height * displayHeight}
+                          />
+                        </button>
+                        {selected === o.id && (
+                          <span className="object-tag">
+                            {o.kind[0].toUpperCase() + o.kind.slice(1)}
+                          </span>
+                        )}
+                      </Rnd>
+                    ))}
+                  {drawing &&
+                    (() => {
+                      const preview = createDrawingOverlay(
+                        drawing.kind,
+                        pageIndex,
+                        drawing.from,
+                        drawing.to,
+                        pageWidth,
+                        pageHeight,
+                        "preview",
+                      );
+                      return (
+                        <div
+                          className="drawing-preview"
+                          aria-hidden="true"
+                          style={{
+                            left: preview.x * pageWidth,
+                            top: preview.y * pageHeight,
+                            width: preview.width * pageWidth,
+                            height: preview.height * pageHeight,
+                          }}
+                        >
+                          <OverlayVisual
+                            overlay={preview}
+                            width={preview.width * displayWidth}
+                            height={preview.height * displayHeight}
+                          />
+                        </div>
+                      );
+                    })()}
+                </div>
+              ) : (
+                <button
+                  className="empty-document"
+                  onClick={() => pdfInput.current?.click()}
+                >
+                  <Upload size={32} />
+                  <strong>Open your first PDF</strong>
+                  <span>Drop a document here or click to choose</span>
+                </button>
+              )}
+              <div className="workspace-hint">
+                <LockKeyhole size={12} />
+                Your document stays on your device.
               </div>
-            ) : (
-              <button
-                className="empty-document"
-                onClick={() => pdfInput.current?.click()}
-              >
-                <Upload size={32} />
-                <strong>Open your first PDF</strong>
-                <span>Drop a document here or click to choose</span>
-              </button>
-            )}
-            <div className="workspace-hint">
-              <LockKeyhole size={12} />
-              Your document stays on your device.
             </div>
-          </div>
+          </EditorContextMenu>
           <footer className="editor-footer">
             <div className="footer-page">
               <Button
@@ -1078,12 +1319,24 @@ export default function App() {
                 onChange={(e) => {
                   const w = Number(e.target.value) / 100;
                   const h = (w / activeOverlay.width) * activeOverlay.height;
-                  updateOverlay(activeOverlay.id, {
+                  const resized = {
+                    ...activeOverlay,
                     width: w,
                     height: h,
                     x: Math.min(activeOverlay.x, 1 - w),
                     y: Math.min(activeOverlay.y, 1 - h),
-                  });
+                  };
+                  if (activeOverlay.kind === "text") {
+                    void fitTextOverlay(resized)
+                      .then((fitted) => updateOverlay(activeOverlay.id, fitted))
+                      .catch((error) =>
+                        setError(
+                          error instanceof Error
+                            ? error.message
+                            : "Unable to resize text.",
+                        ),
+                      );
+                  } else updateOverlay(activeOverlay.id, resized);
                 }}
               />
               <Button
@@ -1125,7 +1378,7 @@ export default function App() {
             </span>
           </div>
           <div className="studio-version">
-            FOLIO STUDIO <span>v1.2.1</span>
+            FOLIO STUDIO <span>v1.3.0</span>
           </div>
         </aside>
       </div>

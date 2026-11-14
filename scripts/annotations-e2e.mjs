@@ -85,6 +85,32 @@ async function waitFile(name) {
   }
   throw new Error(`No download ${name}`);
 }
+async function drawShape(kind, index = 0) {
+  const before = await p.$$eval(".pdf-object", (a) => a.length);
+  await button(`Add ${kind}`);
+  assert.equal(
+    await p.$$eval(".pdf-object", (a) => a.length),
+    before,
+    "Tool selection should not insert a shape",
+  );
+  await p.$eval(".page-stage", (e) => e.scrollIntoView({ block: "center" }));
+  const box = await (await p.$(".page-stage")).boundingBox();
+  const x = 0.12 + (index % 3) * 0.21,
+    y = 0.35 + Math.floor(index / 3) * 0.22;
+  await p.mouse.move(box.x + x * box.width, box.y + y * box.height);
+  await p.mouse.down();
+  await p.mouse.move(
+    box.x + (x + 0.16) * box.width,
+    box.y + (y + 0.12) * box.height,
+    { steps: 12 },
+  );
+  await p.mouse.up();
+  await p.waitForFunction(
+    (n) => document.querySelectorAll(".pdf-object").length === n + 1,
+    {},
+    before,
+  );
+}
 async function ready() {
   await p.waitForFunction(
     () =>
@@ -129,13 +155,21 @@ try {
   );
   assert(
     await p.$eval(".pdf-object", (e) =>
-      e.querySelector('canvas')?.getAttribute('aria-label')?.includes("Reviewed by Folio"),
+      e
+        .querySelector("canvas")
+        ?.getAttribute("aria-label")
+        ?.includes("Reviewed by Folio"),
     ),
   );
   results.push("Multiline text annotation added");
-  for (const kind of ["line", "arrow", "rectangle", "circle", "highlight"]) {
-    await button(`Add ${kind}`);
-    await pause(120);
+  for (const [index, kind] of [
+    "line",
+    "arrow",
+    "rectangle",
+    "circle",
+    "highlight",
+  ].entries()) {
+    await drawShape(kind, index);
   }
   assert.equal((await p.$$(".pdf-object")).length, 6);
   results.push("Line, arrow, rectangle, circle and highlight added");
@@ -227,7 +261,7 @@ try {
   await p.setViewport({ width: 390, height: 844 });
   await p.reload({ waitUntil: "networkidle0" });
   await ready();
-  await button("Add circle");
+  await drawShape("circle");
   await p.waitForSelector(".pdf-object");
   await button("Object properties");
   await p.waitForSelector('[role="dialog"]');
