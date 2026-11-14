@@ -19,6 +19,12 @@
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
 
 [[redirects]]
+  from = "https://pdffolio.ryeka.my.id/*"
+  to = "https://pdf-folio.ryeka.my.id/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
