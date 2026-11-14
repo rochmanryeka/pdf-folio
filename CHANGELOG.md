@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.1
+
+- Move the single Open PDF and Download PDF actions to the right-hand side of the main header.
+- Keep file controls accessible on mobile and with the sidebar closed, without duplicate buttons in the left panel or rail.
+- Publish the source repository publicly on GitHub.
+
 ## 1.2.0
 
 - Remove the document header row to give the PDF canvas more vertical space.
